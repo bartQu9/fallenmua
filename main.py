@@ -21,6 +21,7 @@ def terminate_workers(processes_list):
             logging.debug("Process {0} won't be killed, because is already dead".format(proc.name))
 
 
+
 def main():
 
     def sigint_handler(signal, frame):
