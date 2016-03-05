@@ -21,30 +21,28 @@ def terminate_workers(processes_list):
             logging.debug("Process {0} won't be killed, because is already dead".format(proc.name))
 
 
-
 def main():
-
     def sigint_handler(signal, frame):
         sys.exit(0)
 
     signal.signal(signal.SIGINT, sigint_handler)  # SIGINT handler register
 
-    argParser = argparse.ArgumentParser(description='Fallen MUA - a simple Mail User Agent', prog="fallenmua")
-    argParser.epilog = 'NOTE: "-a" argument is almost always required to getting a relay access on the remote SMTP' \
-                       ' server!'
-    argParser.add_argument("from_", metavar="From", help="Sender (envelope from) e-mail address (user@example.com)")
-    argParser.add_argument("to", metavar="To", help="Comma separated recipients list")
-    argParser.add_argument("-a", "--auth", action="store_true",
-                           help='Use ESMTP authorization feature (you will be asked for a password)')
-    argParser.add_argument("-A", "--attachments", help="Add attachments to the message")
-    argParser.add_argument("-p", "--password", help="Enter the ESMTP authorization password in the visible way")
-    argParser.add_argument("-s", "--subject", help="Subject of the e-mail message, by default, blank")
-    argParser.add_argument("-d", "--date", help='Date and time of the message, by default, current date and time.')
-    argParser.add_argument("-v", "--verbosity", action="count", default=0, help="increase output verbosity")
-    argParser.add_argument("-c", "--content", help="Message content")
-    argParser.add_argument("--bcc", action="store_true", help="blind carbon copy")
+    arg_parser = argparse.ArgumentParser(description='Fallen MUA - a simple Mail User Agent', prog="fallenmua")
+    arg_parser.epilog = 'NOTE: "-a" argument is almost always required to getting a relay access on the remote SMTP' \
+                        ' server!'
+    arg_parser.add_argument("from_", metavar="From", help="Sender (envelope from) e-mail address (user@example.com)")
+    arg_parser.add_argument("to", metavar="To", help="Comma separated recipients list")
+    arg_parser.add_argument("-a", "--auth", action="store_true",
+                            help='Use ESMTP authorization feature (you will be asked for a password)')
+    arg_parser.add_argument("-A", "--attachments", help="Add attachments to the message")
+    arg_parser.add_argument("-p", "--password", help="Enter the ESMTP authorization password in the visible way")
+    arg_parser.add_argument("-s", "--subject", help="Subject of the e-mail message, by default, blank")
+    arg_parser.add_argument("-d", "--date", help='Date and time of the message, by default, current date and time.')
+    arg_parser.add_argument("-v", "--verbosity", action="count", default=0, help="increase output verbosity")
+    arg_parser.add_argument("-c", "--content", help="Message content")
+    arg_parser.add_argument("--bcc", action="store_true", help="blind carbon copy")
 
-    args = argParser.parse_args()
+    args = arg_parser.parse_args()
 
     if args.verbosity == 1:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
@@ -56,9 +54,31 @@ def main():
 
     msg = {}
     smtp = {}
-    env = {'to': args.to.replace(" ", "").split(","), 'from': args.from_}
+    env = {}
 
-    msg['msg_from'] = env['from']
+    if not args.from_.count('@') or not args.to.count('@'):
+        arg_parser.error('Wrong email address')
+
+    if args.from_.count('<'):
+        env['from'] = args.from_.partition('<')[-1].rpartition('>')[0].strip()
+        msg['msg_from'] = args.from_.split('<')[0] + '<' + env['from'] + '>'
+    else:
+        env['from'] = args.from_
+        msg['msg_from'] = args.from_
+
+    env['to'] = []
+    msg['msg_to'] = []
+
+    if args.to.count('<'):
+        rcpts = args.to.split(",")
+        for rcpt in rcpts:
+            _rcpt_addr = rcpt.partition('<')[-1].rpartition('>')[0].strip()
+            env['to'].append(_rcpt_addr)
+            msg['msg_to'].append(rcpt.split('<')[0] + '<' + _rcpt_addr + '>')
+    else:
+        env['to'] = list(map(str.strip, args.to.split(',')))
+        msg['msg_to'] = env['to']
+
     smtp['username'] = env['from'].split("@")[0]
     smtp['domain'] = env['from'].split("@")[1]
 
@@ -100,13 +120,12 @@ def main():
     if args.bcc:
         messages_num = len(env['to'])
         logging.info("Number of messages to prepare and send: {0}".format(messages_num))
-        for curr_rcpt in env['to']:
-            msg['msg_to'] = [curr_rcpt]
+        for idx, curr_rcpt in enumerate(env['to']):
+            msg['msg_to'] = msg['msg_to'][idx]
             tasks.put([env['from'], [curr_rcpt], MakeMessage(**msg)])
     else:
         messages_num = 1
         logging.info("Number of messages to prepare and send: {0}".format(messages_num))
-        msg['msg_to'] = env['to']
         tasks.put([env['from'], env['to'], MakeMessage(**msg)])
 
     msg_workers_count = cpu_count()

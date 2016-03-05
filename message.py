@@ -9,6 +9,7 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import make_msgid, formatdate
+from email.headerregistry import Address
 
 
 # TODO rcpt's/from common name support - email.headerregistry.Address
@@ -23,6 +24,7 @@ class MakeMessage:
         self.message_id = message_id
 
     def __call__(self):
+        logging.debug("------MSG FROM: {0} MSG TO: {1}------".format(self.msg_from, self.msg_to))
         if self.attachments:
             logging.debug("Generating MIME Multipart message, to: {0}".format(self.msg_to))
             msg = MIMEMultipart()
