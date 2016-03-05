@@ -1,24 +1,23 @@
 import smtplib
 import logging
 from _socket import timeout
-from autoconfiguration import get_mx_from_ispdb, get_mx_from_isp
+from resolvers import get_mx_from_ispdb, get_mx_from_isp, get_mx_from_dns
 from socket import getdefaulttimeout
-from dns import resolver
 
 smtp_ports = {'all': (587, 465, 25),
               'starttls': (587, 25),
-              'ssl': 465,
-              'none': (587, 25)}
+              'ssl': (465,),
+              'plain': (587, 25)}
 
 
 class SMTPHandler:
     def __init__(self, domain):
         self.domain = domain
-        self.mx_servers = list()
+        self.mx_servers = []
         self.session = None
-        self.peer_name = {'addr': None, 'port': None}
+        self.connected_mx_server = {'hostname': None, 'port': None}
         self.skip_autoconfig = False
-        logging.debug("Initialized a SMTPHandler object")
+        logging.debug("Initializing a SMTPHandler object")
 
     def resolve_mx(self):
 
@@ -35,24 +34,10 @@ class SMTPHandler:
                 if _mx_from_isp:
                     self.mx_servers = _mx_from_isp
                     return self.mx_servers
-
-        try:
-            _mx_from_dns = list()
-            for mx in resolver.query(self.domain, "MX"):
-                _mx_from_dns.append(mx.to_text().split(" "))
-                logging.info("Found {0} MX servers in DNS zone".format(len(_mx_from_dns)))
-            _mx_from_dns.sort()  # sort MX's by priority
-
-            for mx in _mx_from_dns:
-                mx.append(smtp_ports['all'])  # appending ports
-                mx.pop(0)  # removing priority
-
-            self.mx_servers = _mx_from_dns
-        except resolver.NXDOMAIN:
-            logging.error("Cannot resolve domain name ".format(self.domain))
-            return False
-
-        return _mx_from_dns
+                else:
+                    logging.debug("Searching MX servers in DNS zone")
+                    self.mx_servers = get_mx_from_dns(self.domain)
+                    return self.mx_servers
 
     def connect(self, tlsmethod='all'):
 
@@ -74,29 +59,26 @@ class SMTPHandler:
                 return False
 
         for mx_server in self.mx_servers:
-            if not self.session:
-                for port in mx_server[1]:
-                    if port in smtp_ports[tlsmethod]:
-                        try:
-                            if port == smtp_ports['ssl']:
-                                logging.debug("Trying to connect {0} on {1}".format(mx_server[0], port))
-                                self.session = smtplib.SMTP_SSL(mx_server[0], port, timeout=_timeout)
-                            else:
-                                logging.debug("Trying to connect {0} on {1}".format(mx_server[0], port))
-                                self.session = smtplib.SMTP(mx_server[0], port, timeout=_timeout)
-                        except (ConnectionRefusedError, smtplib.SMTPServerDisconnected, timeout) as err:
-                            logging.debug("Unable to connect to the server {0}, on port {1}, reason: {2}"
-                                          .format(mx_server[0], port, err))
-                        else:
-                            logging.info("Connection with {0} on {1} established successful".format(mx_server[0], port))
-                            self.peer_name['addr'] = mx_server[0]
-                            self.peer_name['port'] = port
-                            self.session.sock.settimeout(getdefaulttimeout())
-                            logging.debug("Connection timeout changed to default")
-                            break
+            if mx_server['port'] in smtp_ports[tlsmethod]:
+                try:
+                    if mx_server['port'] in smtp_ports['ssl']:
+                        logging.debug(
+                            "Trying to connect {0} on {1}".format(mx_server['hostname'], mx_server['port']))
+                        self.session = smtplib.SMTP_SSL(mx_server['hostname'], mx_server['port'], timeout=_timeout)
                     else:
-                        continue
-            else:
+                        logging.debug(
+                            "Trying to connect {0} on {1}".format(mx_server['hostname'], mx_server['port']))
+                        self.session = smtplib.SMTP(mx_server['hostname'], mx_server['port'], timeout=_timeout)
+                except (ConnectionRefusedError, smtplib.SMTPServerDisconnected, timeout) as err:
+                    logging.debug("Unable to connect to the server {0}, on port {1}, reason: {2}"
+                                  .format(mx_server['hostname'], mx_server['port'], err))
+                    continue
+
+                logging.info("Connection with {0} on {1} established successful".format(mx_server['hostname'],
+                                                                                        mx_server['port']))
+                self.connected_mx_server = mx_server
+                self.session.sock.settimeout(getdefaulttimeout())
+                logging.debug("Connection timeout changed to default")
                 break
 
         if not self.session:
@@ -105,23 +87,25 @@ class SMTPHandler:
 
         # if session should be encrypted, do it now
         if tlsmethod != 'none':
-            if self.peer_name['port'] in smtp_ports['starttls']:
-                self.session.ehlo('['+self.session.sock.getsockname()[0]+']')  # with '[]' spamassassin sees as hostname
+            if self.connected_mx_server['port'] in smtp_ports['starttls']:
+                self.session.ehlo(
+                    '[' + self.session.sock.getsockname()[0] + ']')  # with '[]' spamassassin sees as hostname
                 if 'starttls' in self.session.esmtp_features:
                     self.session.starttls()
-                    logging.info("Connection with {0} is encrypted now".format(self.peer_name['addr']))
+                    logging.info("Connection with {0} is encrypted now".format(self.connected_mx_server['hostname']))
                     return self.session
                 else:
                     logging.error(
-                        "Server {0} on {1} doesnt doesn't support STARTTLS command".format(self.peer_name['addr'],
-                                                                                           self.peer_name['port']))
+                        "Server {0} on {1} doesnt doesn't support STARTTLS command".format(
+                            self.connected_mx_server['hostname'],
+                            self.connected_mx_server['port']))
                     self.session.quit()
                     return None
             else:
-                logging.debug("Connection with {0} already encrypted".format(self.peer_name['addr']))
+                logging.debug("Connection with {0} already encrypted".format(self.connected_mx_server['hostname']))
                 return self.session
         else:
-            logging.debug("Unencrypted connection with {0}".format(self.peer_name['addr']))
+            logging.debug("Unencrypted connection with {0}".format(self.connected_mx_server['hostname']))
             return self.session
 
     def authorize(self, user, password):
@@ -136,25 +120,45 @@ class SMTPHandler:
             logging.debug("Cannot authorize user, when connection isn't established")
             return False
 
-        self.session.ehlo('['+self.session.sock.getsockname()[0]+']')
+        self.session.ehlo('[' + self.session.sock.getsockname()[0] + ']')
         if 'auth' in self.session.esmtp_features:
-            try:
-                self.session.login(user, password)
-                logging.info("Authentication successful")
-                return True
-            except smtplib.SMTPAuthenticationError:
+            if self.connected_mx_server['username_type'] == '%EMAILLOCALPART%':
                 try:
-                    logging.debug("Authentication error, now trying with @FQDN")
+                    self.session.login(user, password)
+                    logging.info("Authentication successful")
+                    return True
+                except smtplib.SMTPAuthenticationError:
+                    logging.error("Unable to authorize user")
+                    self.session = None
+                    return False
+            elif self.connected_mx_server['username_type'] == '%EMAILADDRESS%':
+                try:
                     self.session.login(user + '@' + self.domain, password)
                     logging.info("Authentication successful")
                     return True
                 except smtplib.SMTPAuthenticationError:
-                    logging.error("Unable to authorize user, maybe wrong password?")
+                    logging.error("Unable to authorize user")
                     self.session = None
                     return False
+            else:
+                logging.debug("Unsupported or unknown username type, trying '%EMAILLOCALPART%")
+                try:
+                    self.session.login(user, password)
+                    logging.info("Authentication successful")
+                    return True
+                except smtplib.SMTPAuthenticationError:
+                    try:
+                        logging.debug("Authentication error, now trying with @FQDN")
+                        self.session.login(user + '@' + self.domain, password)
+                        logging.info("Authentication successful")
+                        return True
+                    except smtplib.SMTPAuthenticationError:
+                        logging.error("Unable to authorize user")
+                        self.session = None
+                        return False
         else:
             logging.error("Server {0} on {1}, doesn't support AUTH command".
-                          format(self.peer_name['addr'], self.peer_name['port']))
+                          format(self.connected_mx_server['hostname'], self.connected_mx_server['port']))
             return False
 
     def send_mail(self, env_from, env_to, message):
@@ -206,9 +210,9 @@ class SMTPHandler:
 
         if self.session:
             self.session.quit()
-            logging.info("Session with {0} closed".format(self.peer_name['addr']))
+            logging.info("Session with {0} closed".format(self.connected_mx_server['hostname']))
             self.session = None
-            self.peer_name = {'addr': None, 'port': None}
+            self.connected_mx_server = {'hostname': None, 'port': None}
             return True
         else:
             logging.debug("Cannot close session which doesn't exist")

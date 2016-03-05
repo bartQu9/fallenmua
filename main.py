@@ -36,7 +36,7 @@ def main():
     argParser.add_argument("to", metavar="To", help="Comma separated recipients list")
     argParser.add_argument("-a", "--auth", action="store_true",
                            help='Use ESMTP authorization feature (you will be asked for a password)')
-    argParser.add_argument("-A", "--attach", help="Add attachment to the message")
+    argParser.add_argument("-A", "--attachments", help="Add attachments to the message")
     argParser.add_argument("-p", "--password", help="Enter the ESMTP authorization password in the visible way")
     argParser.add_argument("-s", "--subject", help="Subject of the e-mail message, by default, blank")
     argParser.add_argument("-d", "--date", help='Date and time of the message, by default, current date and time.')
@@ -84,8 +84,8 @@ def main():
     else:
         msg['date'] = None
 
-    if args.attach:
-        msg['attachments'] = [path.strip() for path in args.attach.split(',')]
+    if args.attachments:
+        msg['attachments'] = [path.strip() for path in args.attachments.split(',')]
     else:
         msg['attachments'] = None
 
