@@ -83,7 +83,7 @@ def get_mx_from_dns(domain):
         _tmp_mx = []
         for mx in resolver.query(domain, "MX"):
             _tmp_mx.append(mx.to_text().split(" "))
-        logging.info("Found {0} MX servers in DNS zone".format(len(mx_servers)))
+        logging.info("Found {0} MX servers in DNS zone".format(len(_tmp_mx)))
         _tmp_mx.sort()  # sort MX's by priority
 
     except resolver.NXDOMAIN:

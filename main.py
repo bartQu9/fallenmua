@@ -57,7 +57,9 @@ def main():
     env = {}
 
     # checking arg 'from' correctness
-    if not args.from_.count('@'):
+    if len(args.from_.split(',')) > 1:
+        arg_parser.error('At most one sender required')
+    elif not args.from_.count('@'):
         arg_parser.error('Wrong "From" address')
     elif not args.from_.count('<') and args.from_.count(' '):
         arg_parser.error('Wrong "From" address format')
@@ -65,9 +67,9 @@ def main():
     # checking arg 'to' correctness
     rcpts = args.to.split(",")
 
-    if not args.to.count('@'):
-        arg_parser.error('Wrong "To" address')
     for rcpt in rcpts:
+        if not rcpt.count('@'):
+            arg_parser.error('Wrong "To" address')
         if not rcpt.count('<') and rcpt.strip().count(' '):
             arg_parser.error('Wrong "To" address format ({0})'.format(rcpt.strip()))
 
@@ -131,8 +133,9 @@ def main():
     if args.bcc:
         messages_num = len(env['to'])
         logging.info("Number of messages to prepare and send: {0}".format(messages_num))
+        orig_msg_to = msg['msg_to']
         for idx, curr_rcpt in enumerate(env['to']):
-            msg['msg_to'] = msg['msg_to'][idx]
+            msg['msg_to'] = [orig_msg_to[idx]]
             tasks.put([env['from'], [curr_rcpt], MakeMessage(**msg)])
     else:
         messages_num = 1
