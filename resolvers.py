@@ -91,7 +91,7 @@ def get_mx_from_dns(domain):
         return None
 
     for mx in _tmp_mx:
-        for port in (587, 465, 25):  # Adding all knows SMTP ports
+        for port in (587, 465, 25):  # Adding commonly known SMTP ports
             mx_servers.append({'hostname': mx[1], 'port': port, 'sock_type': None, 'username_type': None,
                                'auth_method': None})
 

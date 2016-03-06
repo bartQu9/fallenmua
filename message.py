@@ -8,7 +8,7 @@ from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import make_msgid, formatdate
+from email.utils import make_msgid, formatdate, parseaddr
 from email.headerregistry import Address
 
 
@@ -24,14 +24,22 @@ class MakeMessage:
         self.message_id = message_id
 
     def __call__(self):
-        logging.debug("------MSG FROM: {0} MSG TO: {1}------".format(self.msg_from, self.msg_to))
+
+        parsed_sender = parseaddr(self.msg_from)
+        self.msg_from = Address(parsed_sender[0], parsed_sender[1].split('@')[0], parsed_sender[1].split('@')[1])
+
+        parsed_rcpts = [parseaddr(rcpt) for rcpt in self.msg_to]
+        self.msg_to = [Address(rcpt[0], rcpt[1].split('@')[0]) for rcpt in parsed_rcpts]
+
         if self.attachments:
             logging.debug("Generating MIME Multipart message, to: {0}".format(self.msg_to))
             msg = MIMEMultipart()
             if len(self.msg_to) > 1:
-                msg['To'] = ", ".join(self.msg_to)
+                msg['To'] = ", "
+                for rcpt in self.msg_to:
+                    msg['To'].join(rcpt.display_name + ' <' + rcpt.username + '>')
             else:
-                msg['To'] = self.msg_to[0]
+                msg['To'] = self.msg_to[0].display_name + ' <' + self.msg_to[0].username + '>'
             msg['From'] = self.msg_from
             msg['Subject'] = self.subject
 
@@ -45,7 +53,7 @@ class MakeMessage:
             if self.message_id:
                 msg['Message-ID'] = self.message_id
             else:
-                msg['Message-ID'] = make_msgid(domain=self.msg_from.split("@")[1])
+                msg['Message-ID'] = make_msgid(domain=self.msg_from.domain)
                 logging.debug("Generated Message-ID: {0}".format(msg['Message-ID']))
 
             if self.content:
@@ -108,7 +116,7 @@ class MakeMessage:
             if self.message_id:
                 msg['Message-ID'] = self.message_id
             else:
-                msg['Message-ID'] = make_msgid(domain=self.msg_from.split("@")[1])
+                msg['Message-ID'] = make_msgid(domain=self.msg_from.domain)
                 logging.debug("Generated Message-ID: {0}".format(msg['Message-ID']))
 
             if self.content:

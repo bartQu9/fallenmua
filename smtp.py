@@ -173,6 +173,7 @@ class SMTPHandler:
             return False
 
         try:
+            logging.debug("Sending cmd MAIL FROM: {0}".format(env_from))
             _mail_from_response = self.session.mail(env_from)
             logging.debug("MAIL FROM response: {0}".format(_mail_from_response))
 
@@ -182,6 +183,7 @@ class SMTPHandler:
                 return False
 
             for rcpt in env_to:
+                logging.debug("Sending cmd RCPT TO: {0}".format(rcpt))
                 _rcpt_to_response = self.session.rcpt(rcpt)
                 logging.debug("RCPT To response: {0}".format(_rcpt_to_response))
 

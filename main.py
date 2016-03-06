@@ -56,12 +56,24 @@ def main():
     smtp = {}
     env = {}
 
-    if not args.from_.count('@') or not args.to.count('@'):
-        arg_parser.error('Wrong email address')
+    # checking arg 'from' correctness
+    if not args.from_.count('@'):
+        arg_parser.error('Wrong "From" address')
+    elif not args.from_.count('<') and args.from_.count(' '):
+        arg_parser.error('Wrong "From" address format')
+
+    # checking arg 'to' correctness
+    rcpts = args.to.split(",")
+
+    if not args.to.count('@'):
+        arg_parser.error('Wrong "To" address')
+    for rcpt in rcpts:
+        if not rcpt.count('<') and rcpt.strip().count(' '):
+            arg_parser.error('Wrong "To" address format ({0})'.format(rcpt.strip()))
 
     if args.from_.count('<'):
         env['from'] = args.from_.partition('<')[-1].rpartition('>')[0].strip()
-        msg['msg_from'] = args.from_.split('<')[0] + '<' + env['from'] + '>'
+        msg['msg_from'] = args.from_
     else:
         env['from'] = args.from_
         msg['msg_from'] = args.from_
@@ -69,15 +81,14 @@ def main():
     env['to'] = []
     msg['msg_to'] = []
 
-    if args.to.count('<'):
-        rcpts = args.to.split(",")
-        for rcpt in rcpts:
+    for rcpt in rcpts:
+        if rcpt.count('<'):
             _rcpt_addr = rcpt.partition('<')[-1].rpartition('>')[0].strip()
-            env['to'].append(_rcpt_addr)
-            msg['msg_to'].append(rcpt.split('<')[0] + '<' + _rcpt_addr + '>')
-    else:
-        env['to'] = list(map(str.strip, args.to.split(',')))
-        msg['msg_to'] = env['to']
+            env['to'].append(_rcpt_addr.strip())
+            msg['msg_to'].append(rcpt)
+        else:
+            env['to'].append(rcpt.strip())
+            msg['msg_to'].append(rcpt)
 
     smtp['username'] = env['from'].split("@")[0]
     smtp['domain'] = env['from'].split("@")[1]
