@@ -95,6 +95,15 @@ def main():
     smtp['username'] = env['from'].split("@")[0]
     smtp['domain'] = env['from'].split("@")[1]
 
+    if args.date:
+        try:
+            msg['date'] = datetime.datetime.strptime(args.date, "%d/%m/%Y %H:%M:%S")
+        except ValueError:
+            arg_parser.error('Wrong date/time format\nCorrect example: "24/12/2016 10:30:12"')
+            sys.exit(2)
+    else:
+        msg['date'] = None
+
     if args.auth:
         if args.password:
             smtp['password'] = args.password
@@ -107,15 +116,6 @@ def main():
         msg['subject'] = args.subject
     else:
         msg['subject'] = None
-
-    if args.date:
-        try:
-            msg['date'] = datetime.datetime.strptime(args.date, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            print('Wrong date/time format\n The correct example: "2016-2-4 10:30:12"')
-            sys.exit(2)
-    else:
-        msg['date'] = None
 
     if args.attachments:
         msg['attachments'] = [path.strip() for path in args.attachments.split(',')]
