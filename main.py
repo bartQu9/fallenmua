@@ -63,6 +63,10 @@ def main():
         arg_parser.error('Wrong "From" address')
     elif not args.from_.count('<') and args.from_.count(' '):
         arg_parser.error('Wrong "From" address format')
+    elif args.from_.count('<') and not args.from_.count('>'):
+        arg_parser.error('Wrong "From" address format')
+    elif args.from_.count('>') and not args.from_.count('<'):
+        arg_parser.error('Wrong "From" address format')
 
     # checking arg 'to' correctness
     rcpts = args.to.split(",")
@@ -72,6 +76,10 @@ def main():
             arg_parser.error('Wrong "To" address')
         elif not rcpt.count('<') and rcpt.strip().count(' '):
             arg_parser.error('Wrong "To" address format ({0})'.format(rcpt.strip()))
+        elif rcpt.count('<') and not rcpt.count('>'):
+            arg_parser.error('Wrong "To" address format')
+        elif rcpt.count('>') and not rcpt.count('<'):
+            arg_parser.error('Wrong "To" address format')
 
     if args.from_.count('<'):
         env['from'] = args.from_.partition('<')[-1].rpartition('>')[0].strip()
