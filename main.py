@@ -70,7 +70,7 @@ def main():
     for rcpt in rcpts:
         if not rcpt.count('@'):
             arg_parser.error('Wrong "To" address')
-        if not rcpt.count('<') and rcpt.strip().count(' '):
+        elif not rcpt.count('<') and rcpt.strip().count(' '):
             arg_parser.error('Wrong "To" address format ({0})'.format(rcpt.strip()))
 
     if args.from_.count('<'):
@@ -99,7 +99,7 @@ def main():
         try:
             msg['date'] = datetime.datetime.strptime(args.date, "%d/%m/%Y %H:%M:%S")
         except ValueError:
-            arg_parser.error('Wrong date/time format\nCorrect example: "24/12/2016 10:30:12"')
+            arg_parser.error('Wrong date/time format\nExample: "24/12/2016 10:30:12"')
             sys.exit(2)
     else:
         msg['date'] = None

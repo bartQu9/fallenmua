@@ -29,7 +29,7 @@ class MakeMessage:
         self.msg_from = Address(parsed_sender[0], parsed_sender[1].split('@')[0], parsed_sender[1].split('@')[1])
 
         parsed_rcpts = [parseaddr(rcpt) for rcpt in self.msg_to]
-        self.msg_to = [Address(rcpt[0], rcpt[1].split('@')[0]) for rcpt in parsed_rcpts]
+        self.msg_to = [Address(rcpt[0], rcpt[1].split('@')[0], rcpt[1].split('@')[1]) for rcpt in parsed_rcpts]
 
         if self.attachments:
             logging.debug("Generating MIME Multipart message, to: {0}".format(self.msg_to))
