@@ -38,7 +38,6 @@ class MakeMessage:
                 for rcpt in self.msg_to:
                     str_msg_to.append(rcpt.display_name + ' <' + rcpt.addr_spec + '>')
                 msg['To'] = ', '.join(str_msg_to)
-                logging.debug('!!!!!!!!!!!!!!!!!!!!RCPT TO: {0}'.format(msg['To']))
             else:
                 msg['To'] = self.msg_to[0].display_name + ' <' + self.msg_to[0].addr_spec + '>'
             msg['From'] = self.msg_from.display_name + '<' + self.msg_from.addr_spec + '>'
