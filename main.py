@@ -150,7 +150,11 @@ def main():
         logging.info("Number of messages to prepare and send: {0}".format(messages_num))
         tasks.put([env['from'], env['to'], MakeMessage(**msg)])
 
-    msg_workers_count = cpu_count()
+    if messages_num >= cpu_count():
+        msg_workers_count = cpu_count()
+    else:
+        msg_workers_count = messages_num
+
     logging.debug("Creating {0} MsgWorkers".format(msg_workers_count))
     msg_workers = [MsgWorker(tasks, messages_ready_to_send) for _ in range(msg_workers_count)]
 
@@ -184,7 +188,7 @@ def main():
             terminate_workers(msg_workers)
             sys.exit(1)
 
-    logging.info("It seems that there are no more messages to send, closing connection with MX server")
+    logging.info("It seems there are no more messages to send, closing connection with MX server")
 
 
 if __name__ == "__main__":
