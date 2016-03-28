@@ -12,7 +12,6 @@ from email.utils import make_msgid, formatdate, parseaddr
 from email.headerregistry import Address
 
 
-# TODO rcpt's/from common name support - email.headerregistry.Address
 class MakeMessage:
     def __init__(self, msg_from, msg_to, subject=None, date=None, content=None, attachments=None, message_id=None):
         self.msg_from = msg_from
@@ -35,12 +34,14 @@ class MakeMessage:
             logging.debug("Generating MIME Multipart message, to: {0}".format(self.msg_to))
             msg = MIMEMultipart()
             if len(self.msg_to) > 1:
-                msg['To'] = ", "
+                str_msg_to = []
                 for rcpt in self.msg_to:
-                    msg['To'].join(rcpt.display_name + ' <' + rcpt.username + '>')
+                    str_msg_to.append(rcpt.display_name + ' <' + rcpt.addr_spec + '>')
+                msg['To'] = ', '.join(str_msg_to)
+                logging.debug('!!!!!!!!!!!!!!!!!!!!RCPT TO: {0}'.format(msg['To']))
             else:
-                msg['To'] = self.msg_to[0].display_name + ' <' + self.msg_to[0].username + '>'
-            msg['From'] = self.msg_from
+                msg['To'] = self.msg_to[0].display_name + ' <' + self.msg_to[0].addr_spec + '>'
+            msg['From'] = self.msg_from.display_name + '<' + self.msg_from.addr_spec + '>'
             msg['Subject'] = self.subject
 
             if self.date:
