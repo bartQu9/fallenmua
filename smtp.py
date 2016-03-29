@@ -211,12 +211,13 @@ class SMTPHandler:
     def close(self):
 
         if self.session:
-            self.session.quit()
+            logging.debug("Sending cmd QUIT")
+            _quit_response = self.session.quit()
+            logging.debug("QUIT response {0}".format(_quit_response))
             logging.info("Session with {0} closed".format(self.connected_mx_server['hostname']))
             self.session = None
             self.connected_mx_server = {'hostname': None, 'port': None}
-            return True
+            return
         else:
             logging.debug("Cannot close session which doesn't exist")
-
-            return True
+            return

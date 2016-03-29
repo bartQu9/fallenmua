@@ -189,6 +189,7 @@ def main():
             sys.exit(1)
 
     logging.info("It seems there are no more messages to send, closing connection with MX server")
+    session.close()
 
 
 if __name__ == "__main__":
