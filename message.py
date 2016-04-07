@@ -33,14 +33,17 @@ class MakeMessage:
         if self.attachments:
             logging.debug("Generating MIME Multipart message, to: {0}".format(self.msg_to))
             msg = MIMEMultipart()
-            if len(self.msg_to) > 1:
-                str_msg_to = []
-                for rcpt in self.msg_to:
+            str_msg_to = []
+            for rcpt in self.msg_to:
+                if rcpt.display_name:
                     str_msg_to.append(rcpt.display_name + ' <' + rcpt.addr_spec + '>')
-                msg['To'] = ', '.join(str_msg_to)
+                else:
+                    str_msg_to.append(rcpt.addr_spec)
+            msg['To'] = ', '.join(str_msg_to)
+            if self.msg_from.display_name:
+                msg['From'] = self.msg_from.display_name + ' <' + self.msg_from.addr_spec + '>'
             else:
-                msg['To'] = self.msg_to[0].display_name + ' <' + self.msg_to[0].addr_spec + '>'
-            msg['From'] = self.msg_from.display_name + '<' + self.msg_from.addr_spec + '>'
+                msg['From'] = self.msg_from.addr_spec
             msg['Subject'] = self.subject
 
             if self.date:
